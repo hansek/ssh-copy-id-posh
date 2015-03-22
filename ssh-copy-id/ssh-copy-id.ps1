@@ -8,16 +8,15 @@
  .SYNTAX
     Invoke directly from the powershell command line
  .EXAMPLES
-    .\Scriptname -i idtest.pub user@example.com password
-    .\Scriptname -i idtest.pub user@example.com password -Debug
-    .\ScriptName user@example.com password
+    .\Scriptname -i idtest.pub user@example.com 
+    .\ScriptName user@example.com 
 .NOTES
-    AUTHOR: VijayS
-    DATE:   2014-01-23
-    COMMENT: 
+    AUTHOR: VijayS / deevus
+    DATE:   2015-03-22
+    COMMENT: Modified to work with Scoop.sh
     DEPENDENCIES: 
-        plink.exe
-        type
+        ssh
+        gow
  .HELPURL
     http://stackoverflow.com
  .SEEALSO
@@ -26,11 +25,8 @@
 #>
 
 Param(
-    [Parameter(Position=0,Mandatory=$true)]
-    [String]$user_at_hostname,
-
-    [Parameter(Position=1)]
-    [String]$Password,
+    [Parameter(Position=0,Mandatory=$true,HelpMessage="The remote computer")]
+    [String]$remoteHost,
 
     [Parameter(HelpMessage="The public key file to copy")]
     [ValidateScript({Test-Path $_})]
@@ -42,10 +38,9 @@ Param(
 
 ####################################
 Function Get-SSHCommands {
- Param($Target,$Password, $CommandArray, $PlinkAndPath, $ConnectOnceToAcceptHostKey = $true)
+ Param($Target, $CommandArray, $PlinkAndPath, $ConnectOnceToAcceptHostKey = $true)
  
- $plinkoptions = "-ssh $Target"
- if ($Password) { $plinkoptions += " -pw $Password " }
+ $plinkoptions = "$Target"
  
  #Build ssh Commands
  $CommandArray += "exit"
@@ -71,10 +66,7 @@ Function Get-SSHCommands {
   $PlinkAndPath, $plinkoptions , $remoteCommand)
  
  #ready to run the following command
- #Write-Debug $PlinkCommand
  return "$PlinkCommand"
- #$msg = Invoke-Expression $PlinkCommand
- #$msg
 }
 ###
 Function Invoke-DOSCommands {
@@ -101,7 +93,7 @@ trap { #Stop on all errors
     Write-Error "ERROR: $_"
 }
 
-$PlinkAndPath = '.\plink.exe'
+$PlinkAndPath = $(which ssh)
  
 #from http://serverfault.com/questions/224810/is-there-an-equivalent-to-ssh-copy-id-for-windows
 $Commands = @()
@@ -109,29 +101,19 @@ $Commands += "umask 077" #change permissions to be restrictive
 $Commands += "test -d .ssh || mkdir .ssh" #test and create .ssh director if it doesn't exist
 $Commands += "cat >> .ssh/authorized_keys" #append the public key to file
 
-#Write-Debug $Password
-#Write-Debug $identity
-
 Try {
     $tmp = Get-ItemProperty -Path $identity
     $tmp = Get-ItemProperty -Path $PlinkAndPath
     
-    [String]$cmdline = Get-SSHCommands -Target $user_at_hostname `
-     -Password $Password `
+    [String]$cmdline = Get-SSHCommands -Target $remoteHost `
      -PlinkAndPath $PlinkAndPath `
      -CommandArray $Commands `
      -ConnectOnceToAcceptHostKey $ConnectOnceToAcceptHostKey
 
-     #Invoke-DOSCommands "Echo ""Hello World""", -tmpdir $false
      # pipe the public key to the plink session to get it appended in the right place
-     $cmdline = "& type ""$identity"" | " + $cmdline
-     #$cmdline = Get-Content $identity | " + $cmdline
-     Write-Debug $cmdline
-     #Write-Debug Get-Variable cmdline | Get-Member
-     #Write-Debug Get-Members $cmdline
-     #Invoke-DOSCommands $cmdline, -tmpdir $false
+     $cmdline = "type ""$identity"" | " + $cmdline
+
      Invoke-Expression $cmdline
-     #& $cmdline
 }
 Catch {
     Write-Error "$($_.Exception.Message)"
