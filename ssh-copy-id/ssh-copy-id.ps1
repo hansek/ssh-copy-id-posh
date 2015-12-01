@@ -31,7 +31,7 @@ Param(
     [Parameter(HelpMessage="The public key file to copy")]
     [ValidateScript({Test-Path $_})]
     [Alias("i")]
-    [String]$identity="id_rsa.pub",
+    [String]$identity=$HOME + "\.ssh\id_rsa.pub",
 
     [switch]$ConnectOnceToAcceptHostKey=$false
     )
